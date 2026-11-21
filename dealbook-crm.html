@@ -372,13 +372,19 @@ const STALE_DAYS=14;
    A deal's ARR = locations x monthly price for the year its contract starts x 12. Setup fees are one-time and stay out of ARR. */
 const PRICE_BY_YEAR={2027:399,2028:429,2029:449};
 const SETUP_FEE=750;
-const TARGET={label:'end of 2027',locations:42,arr:203000};
+const TARGET={label:'end of 2027',end:'2027-12-31',locations:42,arr:203000};
 function priceFor(dateStr){
   const y=parseInt(String(dateStr||'').slice(0,4),10)||new Date().getFullYear();
   return PRICE_BY_YEAR[Math.min(Math.max(y,2027),2029)];
 }
 const locs=d=>Math.max(1,Math.round(Number(d&&d.locations)||1));
 const autoArr=(n,dateStr)=>Math.max(1,Math.round(Number(n)||1))*priceFor(dateStr)*12;
+/* A deal saved before per-location pricing has no locations field: it is not counted in location totals. */
+const priced=d=>!!d&&d.locations!=null&&d.locations!=='';
+const pricedLocs=d=>priced(d)?locs(d):0;
+/* Effective price per location per month, so locations x price x 12 always equals the ARR shown. */
+const effPrice=d=>Math.round(Number(d.value||0)/(locs(d)*12)*100)/100;
+const fmtPrice=n=>Number.isInteger(n)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n):new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
 const VIEWS=['pipeline','contacts','companies','tasks'];
 const ICON={
   note:'<svg viewBox="0 0 17 17"><path d="M4 2.5h6l3 3v9H4z"/><path d="M10 2.5v3h3M6.5 9h4M6.5 11.5h3"/></svg>',
@@ -574,10 +580,10 @@ function kpis(list){
   const mine=a=>!S.mine||a.ownerId===me();
   const openTasks=tasks().filter(a=>!a.done&&a.dueAt&&mine(a));
   return {
-    openCount:open.length,openVal:sum(open,d=>num(d.value)),openLocs:sum(open,locs),
+    openCount:open.length,openVal:sum(open,d=>num(d.value)),openLocs:sum(open,pricedLocs),
     weighted:sum(open,d=>num(d.value)*stageOf(d).p),
     byStage:OPEN.map(id=>({id,v:sum(open.filter(d=>(STAGE[d.stage]?d.stage:'lead')===id),d=>num(d.value))})),
-    wonArr:sum(won,d=>num(d.value)),wonLocs:sum(won,locs),
+    wonArr:sum(won,d=>num(d.value)),
     winRate:closed.length?Math.round(won90/closed.length*100):null,
     overdue:openTasks.filter(a=>a.dueAt<t).length,today:openTasks.filter(a=>a.dueAt===t).length
   };
@@ -587,6 +593,10 @@ function viewPipeline(){
   const scoped=all('deals').filter(d=>!S.mine||d.ownerId===me());
   const shown=scoped.filter(d=>matches(d.name,(company(d.companyId)||{}).name,contactName(contact(d.contactId))));
   const k=kpis(scoped);
+  /* The plan's target is company-wide, so this tile ignores the My deals filter and counts only contracts starting by the target date. */
+  const team=S.mine?kpis(all('deals')):k;
+  const tWon=all('deals').filter(d=>d.stage==='won'&&(d.closeDate||isoToYmd(d.closedAt)||'')<=TARGET.end);
+  const tLocs=sum(tWon,pricedLocs);
   const dash=v=>loading?'—':v;
   const segs=k.byStage.filter(s=>s.v>0).map(s=>`<span style="flex-grow:${s.v};background:var(${STAGE[s.id].c})" title="${STAGE[s.id].name}: ${fmtMoney(s.v)}"></span>`).join('');
   const kp=`<section class="kpis" aria-label="Pipeline summary">
@@ -594,9 +604,9 @@ function viewPipeline(){
       <div class="stackbar" role="img" aria-label="Open ARR by stage: ${esc(k.byStage.map(s=>STAGE[s.id].name+' '+fmtCompact(s.v)).join(', '))}">${segs}</div>
       <div class="kpi-sub">${dash(`${k.openCount} open deal${k.openCount===1?'':'s'} · ${k.openLocs} location${k.openLocs===1?'':'s'}`)}</div></div>
     <div class="kpi"><div class="kpi-label">Weighted forecast · ARR</div><div class="kpi-value">${dash(fmtMoney(k.weighted))}</div><div class="kpi-sub">Each deal's ARR × its stage probability</div></div>
-    <div class="kpi"><div class="kpi-label">Signed ARR</div><div class="kpi-value">${dash(fmtMoney(k.wonArr))}</div>
-      <div class="stackbar" role="img" aria-label="${k.wonLocs} of ${TARGET.locations} paying locations">${k.wonLocs?`<span style="flex-grow:${Math.min(k.wonLocs,TARGET.locations)};background:var(--s-won)"></span>`:''}<span style="flex-grow:${Math.max(TARGET.locations-k.wonLocs,0)};min-width:0"></span></div>
-      <div class="kpi-sub">${loading?'—':`${k.wonLocs} of ${TARGET.locations} paying locations · goal ${fmtCompact(TARGET.arr)} ARR by ${TARGET.label}${k.winRate!=null?` · ${k.winRate}% win rate (90 days)`:''}`}</div></div>
+    <div class="kpi"><div class="kpi-label">Signed ARR${S.mine?' · whole team':''}</div><div class="kpi-value">${dash(fmtMoney(team.wonArr))}</div>
+      <div class="stackbar" role="img" aria-label="${tLocs} of ${TARGET.locations} locations signed toward the ${TARGET.label} goal">${tLocs?`<span style="flex-grow:${Math.min(tLocs,TARGET.locations)};background:var(--s-won)"></span>`:''}<span style="flex-grow:${Math.max(TARGET.locations-tLocs,0)};min-width:0"></span></div>
+      <div class="kpi-sub">${loading?'—':`${tLocs} of ${TARGET.locations} locations signed · goal ${fmtCompact(TARGET.arr)} ARR by ${TARGET.label}${team.winRate!=null?` · ${team.winRate}% win rate (90 days)`:''}`}</div></div>
     <div class="kpi"><div class="kpi-label">Follow-ups</div><div class="kpi-value ${k.overdue?'bad':''}">${dash(k.overdue)} <span class="kpi-unit">overdue</span></div><div class="kpi-sub">${loading?'—':`${k.today} due today · <a class="link" href="#tasks">Open tasks</a>`}</div></div>
   </section>`;
   const meBtn=me()?`<div class="seg" role="group" aria-label="Filter deals"><button type="button" data-act="mine" data-v="0" aria-pressed="${!S.mine}">All deals</button><button type="button" data-act="mine" data-v="1" aria-pressed="${S.mine}">My deals</button></div>`:'';
@@ -619,7 +629,7 @@ function viewPipeline(){
     const body=loading?'<div class="col-empty">Loading…</div>':ds.length?ds.slice(0,cap).map(cardHTML).join('')+(extra>0?`<div class="col-more">+${extra} more</div>`:''):`<div class="col-empty">${S.canWrite?'Drop a deal here':'No deals'}</div>`;
     return `<section class="col" data-drop="${s.id}" style="--stage:var(${s.c})" aria-label="${s.name}">
       <header class="col-head"><span class="dot"></span><h2>${s.name}</h2><span class="col-count">${loading?'·':ds.length}</span><span class="col-p" title="Win probability">${Math.round(s.p*100)}%</span></header>
-      <div class="col-sum"><span class="money">${loading?'—':fmtCompact(total)}</span>${!closed&&!loading?`<span class="wt">${fmtCompact(total*s.p)} weighted</span>`:''}</div>
+      <div class="col-sum"><span class="money">${loading?'—':fmtCompact(total)}</span>${loading?'':`<span class="wt">ARR${closed?'':` · ${fmtCompact(total*s.p)} weighted`}</span>`}</div>
       <div class="col-body">${body}</div>
       ${S.canWrite&&!closed?`<button class="btn btn-sm col-add" type="button" data-act="new" data-kind="deal" data-stage="${s.id}">+ Add deal</button>`:''}
     </section>`;
@@ -638,7 +648,7 @@ function cardHTML(d){
   }
   const n=locs(d);
   return `<article class="card" id="card-${esc(d.id)}" data-open="deal" data-id="${esc(d.id)}" ${S.canWrite?'draggable="true"':''} tabindex="0">
-    <div class="card-co">${esc(co?co.name:'No company')} · ${n} location${n===1?'':'s'}</div>
+    <div class="card-co">${esc(co?co.name:'No company')} · ${priced(d)?`${n} location${n===1?'':'s'}`:'locations not set'}</div>
     <h3 class="card-title">${esc(d.name||'Untitled deal')}</h3>
     ${chips.length?`<div class="card-chips">${chips.join('')}</div>`:''}
     <div class="card-meta"><span class="money">${fmtMoney(d.value)}</span><span class="when">${esc(when)}</span>${avatar(d.ownerId)}</div>
@@ -690,7 +700,7 @@ function viewContacts(){
       <td style="white-space:nowrap">${c.lastContactAt?`${esc(relTime(c.lastContactAt))}${ls!=null&&ls>=30?' <span class="chip chip-warn">cold</span>':''}`:'<span class="muted">Never</span>'}</td>
       <td>${avatar(c.ownerId)}</td></tr>`;
   }).join('');
-  return head+`<div class="table-wrap"><table><thead><tr>${th('contacts','name','Name')}${th('contacts','company','Company')}<th>Email</th><th>Phone</th>${th('contacts','value','Open deals','num')}${th('contacts','last','Last contact')}${th('contacts','owner','Owner')}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return head+`<div class="table-wrap"><table><thead><tr>${th('contacts','name','Name')}${th('contacts','company','Company')}<th>Email</th><th>Phone</th>${th('contacts','value','Open ARR','num')}${th('contacts','last','Last contact')}${th('contacts','owner','Owner')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 function viewCompanies(){
   const loading=isLoading();
@@ -714,7 +724,7 @@ function viewCompanies(){
       <td class="num">${won.length?fmtMoney(sum(won,d=>num(d.value))):'<span class="muted">—</span>'}</td>
       <td>${avatar(c.ownerId)}</td></tr>`;
   }).join('');
-  return head+`<div class="table-wrap"><table><thead><tr>${th('companies','name','Company')}${th('companies','industry','Industry')}<th>Size</th>${th('companies','people','Contacts','num')}${th('companies','open','Open pipeline','num')}${th('companies','won','Won','num')}${th('companies','owner','Owner')}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return head+`<div class="table-wrap"><table><thead><tr>${th('companies','name','Company')}${th('companies','industry','Industry')}<th>Size</th>${th('companies','people','Contacts','num')}${th('companies','open','Open ARR','num')}${th('companies','won','Signed ARR','num')}${th('companies','owner','Owner')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 /* ---------- tasks ---------- */
@@ -829,7 +839,9 @@ function drDeal(d){
     ${stepper(d)}
     <dl class="facts">
       <dt>ARR</dt><dd class="mono">${fmtMoney(d.value)}</dd>
-      <dt>Locations</dt><dd>${locs(d)} × <span class="mono">${fmtMoney(num(d.monthlyPrice)||priceFor(d.closeDate))}</span>/month</dd>
+      <dt>Locations</dt>${priced(d)
+        ?`<dd>${locs(d)} × <span class="mono">${fmtPrice(effPrice(d))}</span>/month${Math.abs(effPrice(d)-priceFor(d.closeDate))>0.005?`<span class="muted">list price ${fmtMoney(priceFor(d.closeDate))}</span>`:''}</dd>`
+        :`<dd><span class="chip chip-warn">Not set</span><span class="muted">Edit the deal to price it per location.</span></dd>`}
       <dt>Setup fee</dt><dd><span class="mono">${fmtMoney(d.setupFee!=null&&d.setupFee!==''?d.setupFee:SETUP_FEE)}</span><span class="muted">one-time, not in ARR</span></dd>
       <dt>Weighted</dt><dd><span class="mono">${fmtMoney(num(d.value)*st.p)}</span><span class="muted">at ${Math.round(st.p*100)}%</span></dd>
       <dt>${isOpen(d)?'Expected close':'Closed'}</dt><dd>${isOpen(d)?(d.closeDate?esc(fmtDate(d.closeDate))+closeChip:'<span class="muted">Not set</span>'):esc(fmtDate(isoToYmd(d.closedAt)||d.closeDate)||'—')}</dd>
@@ -888,8 +900,8 @@ function drCompany(c){
   return `<div class="dr-eyebrow">${esc([c.industry,c.size?c.size+' employees':''].filter(Boolean).join(' · '))}</div>
     <h2 class="dr-title">${esc(c.name||'Unnamed company')}</h2>
     <dl class="facts">
-      <dt>Open pipeline</dt><dd class="mono">${fmtMoney(sum(open,d=>num(d.value)))} <span class="muted">${open.length} open</span></dd>
-      <dt>Won to date</dt><dd class="mono">${fmtMoney(sum(won,d=>num(d.value)))}</dd>
+      <dt>Open ARR</dt><dd class="mono">${fmtMoney(sum(open,d=>num(d.value)))} <span class="muted">${open.length} open</span></dd>
+      <dt>Signed ARR</dt><dd class="mono">${fmtMoney(sum(won,d=>num(d.value)))}</dd>
       <dt>Website</dt><dd>${url?`<a class="link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(c.website)}</a>`:'<span class="muted">—</span>'}</dd>
       <dt>Phone</dt><dd>${copyable(c.phone)}</dd>
       <dt>Address</dt><dd>${c.address?esc(c.address):'<span class="muted">—</span>'}</dd>
@@ -1072,12 +1084,14 @@ function openForm(kind,id,preset){
     const fv=$('#f-value'),fl=$('#f-locs'),fc=$('#f-close'),hint=$('#f-value-hint');
     const auto=()=>autoArr(fl.value,fc.value);
     let manual=!!(existing&&existing.value!=null&&existing.value!==''&&Math.abs(num(existing.value)-autoArr(locs(existing),existing.closeDate))>0.5);
-    const sync=()=>{
-      const n=Math.max(1,Math.round(num(fl.value)||1));
-      if(!manual)fv.value=auto();
-      hint.textContent=manual?`Entered by hand. Clear it to use ${n} × ${fmtMoney(priceFor(fc.value))}/month × 12.`:`${n} location${n===1?'':'s'} × ${fmtMoney(priceFor(fc.value))}/month × 12`;
+    const setHint=()=>{
+      const n=Math.max(1,Math.round(num(fl.value)||1)),p=fmtMoney(priceFor(fc.value));
+      hint.textContent=manual?`Entered by hand. Clear the box to use ${n} × ${p}/month × 12.`:`${n} location${n===1?'':'s'} × ${p}/month × 12`;
     };
-    fv.addEventListener('input',()=>{manual=fv.value.trim()!==''&&parseMoney(fv.value)!==auto();sync();});
+    /* Only a change to locations or the close date rewrites ARR; typing in the ARR box never does. */
+    const sync=()=>{if(!manual)fv.value=auto();setHint();};
+    fv.addEventListener('input',()=>{manual=fv.value.trim()!==''&&parseMoney(fv.value)!==auto();setHint();});
+    fv.addEventListener('blur',()=>{if(fv.value.trim()===''){manual=false;sync();}});
     fl.addEventListener('input',sync);fc.addEventListener('input',sync);fc.addEventListener('change',sync);
     sync();
   }
@@ -1111,7 +1125,7 @@ const SAVE={
     const setupFee=parseMoney(val('f-setup'));if(setupFee===null)return formErr('Enter the setup fee as a number, like 750.','f-setup');
     const co=await resolveCompany();if(co.err)return co.msg?formErr(co.msg,'f-newco'):null;
     const now=iso();const stage=val('f-stage')||'lead';
-    const rec={name,companyId:co.id,contactId:val('f-contact')||null,locations,monthlyPrice:priceFor(closeDate),value,setupFee,stage,closeDate,ownerId:val('f-owner-id')||null,notes:val('f-notes'),updatedAt:now};
+    const rec={name,companyId:co.id,contactId:val('f-contact')||null,locations,monthlyPrice:Math.round(value/(locations*12)*100)/100,listPrice:priceFor(closeDate),value,setupFee,stage,closeDate,ownerId:val('f-owner-id')||null,notes:val('f-notes'),updatedAt:now};
     const closed=stage==='won'||stage==='lost';
     if(!id){
       Object.assign(rec,{createdAt:now,createdBy:me(),stageChangedAt:now,lastActivityAt:now,closedAt:closed?now:null});
@@ -1188,9 +1202,9 @@ function toCSV(rows){
 }
 function csvFor(view){
   if(view==='contacts')return {name:'contacts',rows:[['First name','Last name','Title','Company','Email','Phone','Tags','Last contact','Owner']].concat(all('contacts').map(c=>[c.firstName||'',c.lastName||'',c.title||'',(company(c.companyId)||{}).name||'',c.email||'',c.phone||'',(c.tags||[]).join('; '),isoToYmd(c.lastContactAt),c.ownerId?personName(c.ownerId):'']))};
-  if(view==='companies')return {name:'companies',rows:[['Company','Industry','Employees','Website','Phone','Address','Contacts','Open pipeline','Won','Owner']].concat(all('companies').map(c=>{const ds=all('deals').filter(d=>d.companyId===c.id);return [c.name||'',c.industry||'',c.size||'',c.website||'',c.phone||'',c.address||'',all('contacts').filter(x=>x.companyId===c.id).length,sum(ds.filter(isOpen),d=>num(d.value)),sum(ds.filter(d=>d.stage==='won'),d=>num(d.value)),c.ownerId?personName(c.ownerId):''];}))};
+  if(view==='companies')return {name:'companies',rows:[['Company','Industry','Employees','Website','Phone','Address','Contacts','Open ARR','Signed ARR','Owner']].concat(all('companies').map(c=>{const ds=all('deals').filter(d=>d.companyId===c.id);return [c.name||'',c.industry||'',c.size||'',c.website||'',c.phone||'',c.address||'',all('contacts').filter(x=>x.companyId===c.id).length,sum(ds.filter(isOpen),d=>num(d.value)),sum(ds.filter(d=>d.stage==='won'),d=>num(d.value)),c.ownerId?personName(c.ownerId):''];}))};
   if(view==='tasks')return {name:'tasks',rows:[['Task','Due','Done','Deal','Contact','Company','Owner','Details']].concat(tasks().map(a=>[a.subject||'',a.dueAt||'',a.done?'Yes':'No',(deal(a.dealId)||{}).name||'',contactName(contact(a.contactId)),(company(a.companyId)||{}).name||'',a.ownerId?personName(a.ownerId):'',a.body||'']))};
-  return {name:'deals',rows:[['Deal','Company','Contact','Stage','Locations','Price per location per month','ARR','Setup fee (one-time)','Probability','Weighted ARR','Expected close','Closed','Owner','Created']].concat(all('deals').map(d=>{const s=stageOf(d);return [d.name||'',(company(d.companyId)||{}).name||'',contactName(contact(d.contactId)),s.name,locs(d),num(d.monthlyPrice)||priceFor(d.closeDate),num(d.value),d.setupFee!=null&&d.setupFee!==''?num(d.setupFee):SETUP_FEE,s.p,Math.round(num(d.value)*s.p),d.closeDate||'',isoToYmd(d.closedAt),d.ownerId?personName(d.ownerId):'',isoToYmd(d.createdAt)];}))};
+  return {name:'deals',rows:[['Deal','Company','Contact','Stage','Locations','Price per location per month','List price per location per month','ARR','Setup fee (one-time)','Probability','Weighted ARR','Expected close','Closed','Owner','Created']].concat(all('deals').map(d=>{const s=stageOf(d);return [d.name||'',(company(d.companyId)||{}).name||'',contactName(contact(d.contactId)),s.name,priced(d)?locs(d):'',priced(d)?effPrice(d):'',priceFor(d.closeDate),num(d.value),d.setupFee!=null&&d.setupFee!==''?num(d.setupFee):SETUP_FEE,s.p,Math.round(num(d.value)*s.p),d.closeDate||'',isoToYmd(d.closedAt),d.ownerId?personName(d.ownerId):'',isoToYmd(d.createdAt)];}))};
 }
 async function exportCSV(){
   if(!S.downloads)return;
