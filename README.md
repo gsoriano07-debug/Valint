@@ -13,9 +13,9 @@ Dealbook CRM is a single-file sales CRM that runs as a claude.ai Artifact. Live 
 - **Owners.** Assign records to teammates from your claude.ai organization.
 - **Export.** CSV export of the current view.
 
-## Valient AI numbers
+## Valint numbers
 
-The pricing and targets come from *Valient AI — Three-Year Financial Projections* (base case, Oct 30, 2026). They live in the `PRICE_BY_YEAR`, `SETUP_FEE` and `TARGET` constants near the top of the script.
+Valint was called Valient AI in the earlier class docs. The pricing and targets come from *Valient AI — Three-Year Financial Projections* (base case, Oct 30, 2026). They live in the `PRICE_BY_YEAR`, `SETUP_FEE` and `TARGET` constants near the top of the script.
 
 | Figure | Value |
 | --- | --- |
