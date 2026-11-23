@@ -1,0 +1,58 @@
+{
+  "note": "Test data for the headless harness. Not the live CRM's data.",
+  "collections": {
+    "companies": {
+      "co-a": {"name": "Tallowfield Dispensary", "industry": "Cannabis dispensary", "size": "11–50", "phone": "(555) 018-4410", "address": "212 Warren St, Hudson, NY", "notes": "", "ownerId": "u_founder", "createdAt": "2026-10-20T15:00:00Z", "updatedAt": "2026-10-20T15:00:00Z", "sample": true},
+      "co-b": {"name": "Bluestone Leaf Co.", "industry": "Cannabis dispensary", "size": "51–200", "phone": "", "address": "Kingston, NY", "notes": "", "ownerId": null, "createdAt": "2026-11-02T15:00:00Z", "updatedAt": "2026-11-02T15:00:00Z", "sample": true},
+      "co-c": {"name": "Larkspur General Store", "industry": "Independent retail", "size": "11–50", "phone": "", "address": "Saratoga Springs, NY", "notes": "", "ownerId": null, "createdAt": "2026-10-27T15:00:00Z", "updatedAt": "2026-10-27T15:00:00Z", "sample": true},
+      "co-d": {"name": "Canalside Goods", "industry": "Independent retail", "size": "11–50", "phone": "", "address": "Rochester, NY", "notes": "", "ownerId": null, "createdAt": "2026-09-01T15:00:00Z", "updatedAt": "2026-09-01T15:00:00Z", "sample": true}
+    },
+    "contacts": {
+      "ct-a": {"firstName": "Dana", "lastName": "Ruiz", "title": "Owner", "companyId": "co-a", "email": "dana@tallowfield.example", "phone": "", "tags": ["pilot"], "ownerId": null, "lastContactAt": "2026-11-18T16:00:00Z", "createdAt": "2026-10-20T15:10:00Z", "sample": true},
+      "ct-b": {"firstName": "Andre", "lastName": "Coleman", "title": "Director of Operations", "companyId": "co-b", "email": "andre@bluestoneleaf.example", "phone": "", "tags": [], "ownerId": null, "lastContactAt": "2026-11-17T20:00:00Z", "createdAt": "2026-11-02T15:10:00Z", "sample": true}
+    },
+    "deals": {
+      "dl-pilot": {"name": "Pilot to paid", "companyId": "co-a", "contactId": "ct-a", "locations": 1, "monthlyPrice": 399, "value": 4788, "setupFee": 750, "stage": "pilot", "closeDate": "2027-01-08", "ownerId": "u_founder", "stageChangedAt": "2026-11-03T15:00:00Z", "lastActivityAt": "2026-11-18T16:00:00Z", "closedAt": null, "createdAt": "2026-10-20T15:00:00Z", "sample": true},
+      "dl-prop": {"name": "2-store rollout", "companyId": "co-b", "contactId": "ct-b", "locations": 2, "monthlyPrice": 399, "value": 9576, "setupFee": 750, "stage": "proposal", "closeDate": "2027-02-05", "ownerId": null, "stageChangedAt": "2026-11-17T20:00:00Z", "lastActivityAt": "2026-11-17T20:00:00Z", "closedAt": null, "createdAt": "2026-11-02T15:00:00Z", "sample": true},
+      "dl-won": {"name": "Store help desk", "companyId": "co-c", "contactId": null, "locations": 1, "monthlyPrice": 399, "value": 4788, "setupFee": 750, "stage": "won", "closeDate": "2026-11-05", "ownerId": "u_founder", "stageChangedAt": "2026-11-05T15:00:00Z", "lastActivityAt": "2026-11-05T15:00:00Z", "closedAt": "2026-11-05T15:00:00Z", "createdAt": "2026-10-01T15:00:00Z", "sample": true},
+      "dl-churned": {"name": "Two-shop assistant", "companyId": "co-d", "contactId": null, "locations": 2, "monthlyPrice": 399, "value": 9576, "setupFee": 750, "stage": "won", "closeDate": "2026-10-01", "churnedAt": "2026-11-15", "ownerId": null, "stageChangedAt": "2026-10-01T15:00:00Z", "lastActivityAt": "2026-11-15T15:00:00Z", "closedAt": "2026-10-01T15:00:00Z", "createdAt": "2026-09-01T15:00:00Z", "sample": true},
+      "dl-lost": {"name": "Tenant help desk", "companyId": "co-b", "contactId": null, "locations": 1, "monthlyPrice": 399, "value": 4788, "setupFee": 750, "stage": "lost", "closeDate": "2026-11-01", "ownerId": null, "closedAt": "2026-11-03T15:00:00Z", "createdAt": "2026-09-15T15:00:00Z", "sample": true},
+      "dl-legacy": {"name": "Old deal without locations", "companyId": null, "contactId": null, "value": 12000, "stage": "qualified", "closeDate": "2027-03-01", "ownerId": null, "createdAt": "2026-09-15T15:00:00Z"}
+    },
+    "activities": {
+      "tk-1": {"type": "task", "subject": "Overdue follow-up", "body": "", "dueAt": "2026-11-20", "done": false, "dealId": "dl-pilot", "contactId": "ct-a", "companyId": "co-a", "ownerId": null, "createdAt": "2026-11-14T18:40:00Z", "sample": true},
+      "tk-2": {"type": "task", "subject": "Due later", "body": "", "dueAt": "2026-12-03", "done": false, "dealId": null, "contactId": null, "companyId": null, "ownerId": null, "createdAt": "2026-11-14T18:40:00Z", "sample": true},
+      "ac-1": {"type": "call", "subject": "", "body": "Pilot check-in.", "dealId": "dl-pilot", "contactId": "ct-a", "companyId": "co-a", "ownerId": null, "createdAt": "2026-11-18T16:00:00Z", "sample": true}
+    },
+    "settings": {
+      "finance": {"openingCash": 3500, "openingDate": "2026-11-01", "note": "Founder funding"}
+    },
+    "expenses": {
+      "ex-1": {"date": "2026-11-03", "vendor": "Domain registrar", "description": "valint domain", "category": "ga", "amount": 20, "recurring": false, "notes": "", "createdAt": "2026-11-03T12:00:00Z", "sample": true},
+      "ex-2": {"date": "2026-11-05", "vendor": "Google Cloud", "description": "Hosting", "category": "cos", "amount": 180, "recurring": true, "notes": "", "createdAt": "2026-11-05T12:00:00Z", "sample": true},
+      "ex-3": {"date": "2026-11-12", "vendor": "Anthropic", "description": "Claude API usage for pilots", "category": "cos", "amount": 240.5, "recurring": true, "notes": "", "createdAt": "2026-11-12T12:00:00Z", "sample": true},
+      "ex-4": {"date": "2026-11-15", "vendor": "Legal template", "description": "Terms of service and privacy policy", "category": "ga", "amount": 300, "recurring": false, "notes": "", "createdAt": "2026-11-15T12:00:00Z", "sample": true},
+      "ex-5": {"date": "2026-11-18", "vendor": "Figma", "description": "Design seat", "category": "software", "amount": 15, "recurring": true, "notes": "", "createdAt": "2026-11-18T12:00:00Z", "sample": true},
+      "ex-6": {"date": "2026-10-20", "vendor": "Before opening date", "description": "Should not count in cash", "category": "ga", "amount": 999, "recurring": false, "notes": "", "createdAt": "2026-10-20T12:00:00Z", "sample": true}
+    },
+    "invoices": {
+      "inv-1": {"number": "INV-0001", "companyId": "co-a", "dealId": "dl-pilot", "issueDate": "2026-11-03", "dueDate": "2026-11-17", "lines": [{"description": "30-day pilot", "qty": 1, "unitPrice": 250}], "status": "paid", "paidDate": "2026-11-10", "notes": "", "createdAt": "2026-11-03T12:00:00Z", "sample": true},
+      "inv-2": {"number": "INV-0002", "companyId": "co-c", "dealId": "dl-won", "issueDate": "2026-11-05", "dueDate": "2026-11-15", "lines": [{"description": "Setup fee", "qty": 1, "unitPrice": 750}, {"description": "Subscription, Nov 2026", "qty": 1, "unitPrice": 399}], "status": "sent", "paidDate": null, "notes": "", "createdAt": "2026-11-05T12:00:00Z", "sample": true},
+      "inv-3": {"number": "INV-0003", "companyId": "co-b", "dealId": null, "issueDate": "2026-11-21", "dueDate": "2026-12-05", "lines": [{"description": "30-day pilot", "qty": 1, "unitPrice": 250}], "status": "draft", "paidDate": null, "notes": "", "createdAt": "2026-11-21T12:00:00Z", "sample": true}
+    },
+    "milestones": {
+      "ms-1": {"title": "Form the LLC and open a business bank account", "targetDate": "2026-11-30", "metric": "none", "targetValue": null, "status": "in-progress", "doneAt": null, "notes": "", "source": "Projections milestone", "order": 1},
+      "ms-2": {"title": "Reach 25 paying locations", "targetDate": "2027-06-30", "metric": "locations", "targetValue": 25, "status": "not-started", "doneAt": null, "notes": "", "source": "Projections milestone", "order": 4},
+      "ms-3": {"title": "Pass $250,000 ARR and hire the first salesperson", "targetDate": "2028-06-30", "metric": "arr", "targetValue": 250000, "status": "not-started", "doneAt": null, "notes": "", "source": "Projections milestone", "order": 6}
+    },
+    "hires": {
+      "hr-1": {"role": "Founder", "name": "Founder", "startMonth": "2027-01", "annualSalary": 36000, "status": "hired", "notes": "", "order": 1},
+      "hr-2": {"role": "First salesperson", "name": "", "startMonth": "2028-03", "annualSalary": null, "status": "planned", "notes": "Once ARR passes $250,000", "order": 2}
+    },
+    "segments": {
+      "sg-1": {"name": "New York licensed adult-use dispensaries", "count": 623, "inTarget": true, "notes": "As of Mar 31, 2026", "source": "Business plan", "order": 1},
+      "sg-2": {"name": "U.S. dispensaries", "count": 15000, "inTarget": false, "notes": "About 15,000", "source": "Business plan", "order": 2},
+      "sg-3": {"name": "Independent retail stores (New York)", "count": null, "inTarget": true, "notes": "Count not in the plan yet", "source": "", "order": 3}
+    }
+  }
+}
