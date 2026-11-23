@@ -4943,12 +4943,21 @@ const patch=(coll,id,data)=>write(()=>S.db.doc(coll+'/'+id).update(data));
 const remove=(coll,id)=>write(()=>S.db.doc(coll+'/'+id).delete());
 const me=()=>(S.me&&S.me.id)||null;
 
+/* A won deal bills from its close date. Marking a deal Won sets that date to today and keeps the
+   old expected date in expectedCloseDate; moving it back out of Won puts the expected date back. */
+function wonDates(d,stage){
+  const was=!!d&&d.stage==='won';
+  if(stage==='won'&&!was)return {closeDate:todayStr(),expectedCloseDate:(d&&d.closeDate)||null};
+  if(stage!=='won'&&was&&d.expectedCloseDate!==undefined)return {closeDate:d.expectedCloseDate||null,expectedCloseDate:null};
+  return {};
+}
+const closeLabel=s=>s==='won'?'Won on · billing starts':s==='lost'?'Close date':'Expected close';
 async function moveDeal(id,stage){
   const d=deal(id);if(!d||d.stage===stage||!S.canWrite)return;
   const now=iso();
-  const p={stage,stageChangedAt:now,updatedAt:now,lastActivityAt:now,closedAt:(stage==='won'||stage==='lost')?now:null};
+  const p=Object.assign({stage,stageChangedAt:now,updatedAt:now,lastActivityAt:now,closedAt:(stage==='won'||stage==='lost')?now:null},wonDates(d,stage));
   if(!(await patch('deals',id,p)))return;
-  toast(`${d.name||'Deal'} moved to ${STAGE[stage].name}`);
+  toast(stage==='won'?`${d.name||'Deal'} won. Billing starts today.`:`${d.name||'Deal'} moved to ${STAGE[stage].name}`);
   await create('activities',{type:'stage',subject:'Moved to '+STAGE[stage].name,body:'',dealId:id,contactId:d.contactId||null,companyId:d.companyId||null,ownerId:me(),createdBy:me(),createdAt:now});
 }
 async function toggleTask(id,done){
@@ -5278,6 +5287,7 @@ function drDeal(d){
       <dt>Setup fee</dt><dd><span class="mono">${fmtMoney(d.setupFee!=null&&d.setupFee!==''?d.setupFee:setupFee())}</span><span class="muted">one-time, not in ARR</span></dd>
       <dt>Weighted</dt><dd><span class="mono">${fmtMoney(num(d.value)*st.p)}</span><span class="muted">at ${Math.round(st.p*100)}%</span></dd>
       <dt>${isOpen(d)?'Expected close':'Closed'}</dt><dd>${isOpen(d)?(d.closeDate?esc(fmtDate(d.closeDate))+closeChip:'<span class="muted">Not set</span>'):esc(fmtDate(isoToYmd(d.closedAt)||d.closeDate)||'—')}</dd>
+      ${d.stage==='won'?`<dt>Billing starts</dt><dd>${d.closeDate?esc(fmtDate(d.closeDate))+(d.closeDate>t?'<span class="muted">not billing yet</span>':''):'<span class="muted">Not set</span>'}</dd>`:''}
       <dt>Company</dt><dd>${openLink('company',co,co&&co.name)}</dd>
       <dt>Contact</dt><dd>${openLink('contact',ct,contactName(ct))}</dd>
       <dt>Owner</dt><dd>${person(d.ownerId)}</dd>
@@ -5480,7 +5490,7 @@ function openForm(kind,id,preset){
       `<div class="row2">${F.select('f-company','Company',companyOpts(true),r.companyId)}${F.select('f-contact','Contact',contactOpts(),r.contactId)}</div>`+
       `<div class="field" id="newco-wrap" hidden><label for="f-newco">New company name</label><input class="input" id="f-newco" maxlength="160"></div>`+
       `<div class="row2">${F.text('f-locs','Locations',id?locs(r):(r.locations||1),'type="number" min="1" step="1" inputmode="numeric"')}${F.select('f-stage','Stage',STAGES.map(s=>[s.id,`${s.name} · ${Math.round(s.p*100)}%`]),r.stage||'lead')}</div>`+
-      `<div class="row2">${F.text('f-close','Expected close',r.closeDate||'','type="date"')}${ownerField(id?r.ownerId:(r.ownerId||me()))}</div>`+
+      `<div class="row2">${F.text('f-close',closeLabel(r.stage||'lead'),r.closeDate||'','type="date"')}${ownerField(id?r.ownerId:(r.ownerId||me()))}</div>`+
       `<div class="row2"><div class="field"><label for="f-value">ARR (USD)</label><input class="input mono" id="f-value" inputmode="decimal" value="${esc(r.value!=null&&r.value!==''?r.value:'')}"><span class="hint" id="f-value-hint"></span></div>`+
       `<div class="field"><label for="f-setup">Setup fee, one-time (USD)</label><input class="input mono" id="f-setup" inputmode="decimal" value="${esc(setupVal)}"><span class="hint">Not counted in ARR</span></div></div>`+
       F.area('f-notes','Notes',r.notes,3);
@@ -5526,6 +5536,16 @@ function openForm(kind,id,preset){
     fv.addEventListener('input',()=>{manual=fv.value.trim()!==''&&parseMoney(fv.value)!==auto();setHint();});
     fv.addEventListener('blur',()=>{if(fv.value.trim()===''){manual=false;sync();}});
     fl.addEventListener('input',sync);fc.addEventListener('input',sync);fc.addEventListener('change',sync);
+    /* Picking Won fills the date with today (billing starts then) unless the date was already edited here. */
+    const fs=$('#f-stage'),fcl=document.querySelector('label[for="f-close"]'),origStage=r.stage||'lead';
+    const wonClose=origStage==='won'?(r.closeDate||''):todayStr();
+    const openClose=origStage==='won'&&r.expectedCloseDate!==undefined?(r.expectedCloseDate||''):(r.closeDate||'');
+    let closeTouched=false;
+    fc.addEventListener('input',()=>{closeTouched=true;});
+    if(fs)fs.addEventListener('change',()=>{
+      if(fcl)fcl.textContent=closeLabel(fs.value);
+      if(!closeTouched){fc.value=fs.value==='won'?wonClose:openClose;sync();}
+    });
     sync();
   }
   const cs=$('#f-company');if(cs){const sync=()=>{$('#newco-wrap').hidden=cs.value!=='__new';};cs.addEventListener('change',()=>{sync();if(cs.value==='__new')$('#f-newco').focus();});sync();}
@@ -5552,19 +5572,24 @@ const SAVE={
     const name=val('f-name');if(!name)return formErr('Give the deal a name.','f-name');
     const locsRaw=val('f-locs');const locations=Math.round(Number(locsRaw));
     if(!locsRaw||!isFinite(locations)||locations<1)return formErr('Enter how many locations, 1 or more.','f-locs');
-    const closeDate=val('f-close')||null;
+    const stage=val('f-stage')||'lead';
+    const closeDate=val('f-close')||(stage==='won'?todayStr():null);
     const value=val('f-value')?parseMoney(val('f-value')):autoArr(locations,closeDate);
     if(value===null)return formErr('Enter ARR as a number, like 4788.','f-value');
     const setupFee=parseMoney(val('f-setup'));if(setupFee===null)return formErr('Enter the setup fee as a number, like 750.','f-setup');
     const co=await resolveCompany();if(co.err)return co.msg?formErr(co.msg,'f-newco'):null;
-    const now=iso();const stage=val('f-stage')||'lead';
+    const now=iso();
     const rec={name,companyId:co.id,contactId:val('f-contact')||null,locations,monthlyPrice:Math.round(value/(locations*12)*100)/100,listPrice:priceFor(closeDate),value,setupFee,stage,closeDate,ownerId:val('f-owner-id')||null,notes:val('f-notes'),updatedAt:now};
     const closed=stage==='won'||stage==='lost';
     if(!id){
       Object.assign(rec,{createdAt:now,createdBy:me(),stageChangedAt:now,lastActivityAt:now,closedAt:closed?now:null});
       const nid=await create('deals',rec);if(nid)toast('Deal created');return nid;
     }
-    if(old.stage!==stage){rec.stageChangedAt=now;rec.closedAt=closed?now:null;}
+    if(old.stage!==stage){
+      rec.stageChangedAt=now;rec.closedAt=closed?now:null;
+      if(stage==='won')rec.expectedCloseDate=old.closeDate||null;
+      else if(old.stage==='won')rec.expectedCloseDate=null;
+    }
     const ok=await patch('deals',id,rec);
     if(ok&&old.stage!==stage)await create('activities',{type:'stage',subject:'Moved to '+STAGE[stage].name,body:'',dealId:id,contactId:rec.contactId,companyId:rec.companyId,ownerId:me(),createdBy:me(),createdAt:now});
     if(ok)toast('Deal saved');return ok?id:null;
@@ -5697,7 +5722,7 @@ function monthRange(fromYm,toYm){const out=[];let c=fromYm,guard=0;while(c<=toYm
 /* "Mar ’28": the apostrophe keeps a 2-digit year from reading as a day of the month. */
 function monthLabel(ym){const [y,m]=String(ym||'').split('-').map(Number);if(!y||!m)return '';return `${new Date(y,m-1,1).toLocaleDateString('en-US',{month:'short'})} ’${String(y).slice(2)}`;}
 
-/* Subscriptions are won deals: each starts on its close date and stops on churnedAt, if set. */
+/* Subscriptions are won deals: each starts on its close date (set to the day it was marked Won) and stops on churnedAt, if set. */
 function subscriptions(){
   return all('deals').filter(d=>d.stage==='won').map(d=>{
     const co=company(d.companyId);

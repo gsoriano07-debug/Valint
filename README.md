@@ -10,7 +10,7 @@ Dealbook is Valint's company workspace: a sales CRM plus finance and planning ta
 | Sales | Pipeline | Deals by stage (Lead, Qualified, Proposal, Pilot, Won, Lost), drag to move, ARR and weighted forecast, progress to the end-2027 target |
 | Sales | Contacts, Companies | Records with deals and an activity timeline |
 | Sales | Tasks | Follow-ups grouped by due date |
-| Finance | Revenue | Won deals as subscriptions: MRR, ARR, ARPA, churn, MRR movement by month, mark a customer churned |
+| Finance | Revenue | Won deals as subscriptions: MRR, ARR, ARPA, churn, MRR movement by month, mark a customer churned. A deal starts billing the day it's marked Won (the deal form lets you change that date) |
 | Finance | Expenses | Spending by plan category against the plan's monthly budget |
 | Finance | Invoices | Invoice records with line items, receivables aging, payments |
 | Finance | Cash & runway | Cash on hand, monthly burn, runway, a cash projection and a what-if |

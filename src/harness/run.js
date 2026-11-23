@@ -210,6 +210,49 @@ function excerpt(h) { return h.replace(/<svg[\s\S]*?<\/svg>/g, '[svg]').replace(
     suspicious(els['#main'].innerHTML, id + ' re-render after actions');
     if (consoleErrors.length) consoleErrors.forEach(function (e) { fail(id + ' console.error: ' + e.slice(0, 400)); });
   }
+  /* core: marking a deal Won starts billing today; moving it back out of Won restores the expected close date */
+  if (dbg && store.deals && store.deals['dl-pilot']) {
+    print('\n=== core: mark won ===');
+    var td = new Date(), today = td.getFullYear() + '-' + String(td.getMonth() + 1).padStart(2, '0') + '-' + String(td.getDate()).padStart(2, '0');
+    var exp0 = store.deals['dl-pilot'].closeDate, prevStage = store.deals['dl-pilot'].stage;
+    clickAct({ act: 'stage', id: 'dl-pilot', stage: 'won' }); await tick(20);
+    var pd = store.deals['dl-pilot'];
+    if (pd.stage !== 'won') fail('Mark won did not move dl-pilot to won');
+    if (pd.closeDate !== today) fail('Mark won should set closeDate to today (' + today + '), got ' + pd.closeDate);
+    if (pd.expectedCloseDate !== exp0) fail('Mark won should keep the old expected close (' + exp0 + ') in expectedCloseDate, got ' + pd.expectedCloseDate);
+    var sub = dbg.ctx.subscriptions().filter(function (s) { return s.id === 'dl-pilot'; })[0];
+    if (!sub || sub.start !== today) fail('the won deal should bill from today, subscription start is ' + (sub && sub.start));
+    print('  won: closeDate ' + pd.closeDate + ', expectedCloseDate ' + pd.expectedCloseDate + ', billing from ' + (sub && sub.start));
+    clickAct({ act: 'stage', id: 'dl-pilot', stage: prevStage }); await tick(20);
+    pd = store.deals['dl-pilot'];
+    if (pd.closeDate !== exp0) fail('moving back out of Won should restore closeDate ' + exp0 + ', got ' + pd.closeDate);
+    if (pd.expectedCloseDate !== null) fail('moving back out of Won should clear expectedCloseDate');
+    print('  back to ' + pd.stage + ': closeDate ' + pd.closeDate);
+
+    /* the deal form: picking Won fills today's date, picking an open stage again puts the old date back */
+    print('\n=== core: deal form, stage set to won ===');
+    var exp1 = store.deals['dl-prop'].closeDate;
+    els['#modal'].innerHTML = ''; els['#modal'].hidden = true;
+    clickAct({ act: 'edit', kind: 'deal', id: 'dl-prop' }); await tick(10);
+    var fs = document.getElementById('f-stage'), fc = document.getElementById('f-close');
+    if (!fs || !fc) fail('deal form has no stage or close date field');
+    else {
+      var pick = function (v) { fs.value = v; fs._touched = true; (fs._l.change || []).forEach(function (f) { f({ target: fs }); }); };
+      pick('won');
+      if (document.getElementById('f-close').value !== today) fail('picking Won should fill the date with today, got ' + document.getElementById('f-close').value);
+      pick('proposal');
+      if (document.getElementById('f-close').value !== exp1) fail('picking Proposal again should restore ' + exp1 + ', got ' + document.getElementById('f-close').value);
+      pick('won');
+      var subsF = els['#rec-form']._l.submit || [];
+      if (!subsF.length) fail('deal form has no submit listener');
+      else {
+        await subsF[subsF.length - 1]({ preventDefault: function () {} }); await tick(20);
+        var sd = store.deals['dl-prop'];
+        if (sd.stage !== 'won' || sd.closeDate !== today || sd.expectedCloseDate !== exp1) fail('saving the form as Won should store stage won, closeDate ' + today + ', expectedCloseDate ' + exp1 + '; got ' + sd.stage + ', ' + sd.closeDate + ', ' + sd.expectedCloseDate);
+        print('  saved: stage ' + sd.stage + ', closeDate ' + sd.closeDate + ', expectedCloseDate ' + sd.expectedCloseDate + (els['#form-err'].hidden ? '' : '; form error: ' + els['#form-err'].textContent));
+      }
+    }
+  }
   print('\nWrites recorded: ' + writes.length + (writes.length ? ' (' + writes.slice(-6).map(function (w) { return w.op + ' ' + w.path; }).join(', ') + ')' : ''));
   print(problems.length ? 'RESULT: FAIL (' + problems.length + ' problems)' : 'RESULT: PASS');
 })().catch(function (e) { print('HARNESS ERROR: ' + e + '\n' + e.stack); print('RESULT: FAIL (harness error)'); });

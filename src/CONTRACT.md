@@ -70,7 +70,9 @@ Records: `all(collection)` → array of `{id, ...fields}` ([] if not loaded), `g
 `company(id)`, `contact(id)`, `deal(id)`, `contactName(c)`, `isOpen(deal)`, `stageOf(deal)` → `{id,name,p}`,
 `tasks()`, `me()` (viewer id or null), `personName(id)`, `avatar(id)`, `person(id)`, `STAGES`.
 Deals: `{name, companyId, contactId, locations, monthlyPrice, listPrice, value (= ARR), setupFee, stage
-(lead|qualified|proposal|pilot|won|lost), closeDate, churnedAt?, closedAt, ownerId, notes, ...}`.
+(lead|qualified|proposal|pilot|won|lost), closeDate, expectedCloseDate?, churnedAt?, closedAt, ownerId, notes, ...}`.
+Marking a deal Won sets `closeDate` to that day and keeps the old date in `expectedCloseDate`; moving it back
+out of Won restores it.
 `locs(d)`, `priced(d)` (has a locations field), `pricedLocs(d)`, `isChurned(d)`.
 
 Plan (from the projections doc; overridable on the Assumptions tab): `plan()` returns
@@ -107,7 +109,7 @@ doc within a few percent (e.g. ~42.9 locations / ~$205K ARR at Dec 2027 vs the d
 newLocations, churned, endLocations, endMrr, endArr, grossMargin, opMargin}`.
 
 Revenue (actuals): `subscriptions()` → won deals as `{id, deal, companyId, name, locations, mrr, arr, start,
-end}` (start = close date, end = churnedAt or null). `mrrOn(ymd)`, `locationsOn(ymd)` (active on that date).
+end}` (start = close date, which is the day the deal was won; end = churnedAt or null). `mrrOn(ymd)`, `locationsOn(ymd)` (active on that date).
 To churn a customer: `ctx.patch('deals', id, {churnedAt: 'YYYY-MM-DD'})`; to undo: `{churnedAt: null}`.
 
 Cash: `finance()` → `{openingCash, openingDate, budgets, note}` (settings/finance; defaults $3,500 on
